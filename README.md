@@ -19,10 +19,10 @@ La lógica general del script en una base de datos es:
 * Obtener la lista de bases de datos.  
     `>show databases;`
 * Para cada base de datos 
-    * Obtener la lista de tablas
-        `>show tables`
-    * Contar las filas de la tabla
-        `>SELECT COUNT(*) FROM <TABLE>`
+    * Obtener la lista de tablas  
+        `>show tables;`
+    * Contar las filas de la tabla  
+        `>SELECT COUNT(*) FROM <TABLE>;`
 
 La recopilación de la información se repite para cada base de datos.
 Toda la información obtenida de la base de datos se almacena en un diccionario.  
