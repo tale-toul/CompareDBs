@@ -1,48 +1,53 @@
 #!/usr/bin/env python
 
+#Version 0.1
+
 import MySQLdb
 
 #Gather information from first database#
-bd_user='mogutu'
-bd_password='seseseco'
-bd_host='motril.epsa.junta-andalucia.es'
+bd_user='mdsole'
+bd_password='LamidelaSo'
+bd_host='lomopardo.epsa.junta-andalucia.es'
 
 cnx = MySQLdb.connect(user=bd_user,passwd=bd_password,host=bd_host)
 cursor=cnx.cursor()
 cursor.execute("show databases")
-databases=cursor.fetchall()
+databases=cursor.fetchall() #All database names
 cursor.close()
 
 dict_bases=dict()
 
 for d in databases:
-    if not d[0].upper().endswith('SCHEMA'):
-        if not d[0] in dict_bases:
+    if not d[0].upper().endswith('SCHEMA'): #Ignore the *_schema databases
+        if not d[0] in dict_bases: #Database should not exist in the dictionary
             cone=MySQLdb.connect(user=bd_user,passwd=bd_password,host=bd_host,db=d[0])
             crs=cone.cursor()
             crs.execute("show tables")
-            tables=crs.fetchall()
-            dict_tables=dict()
+            tables=crs.fetchall() #Get the whole list of result at once because I need to
+                                  # reuse the cursor
+            dict_tables=dict() #Dictionary holding {table_name:row_count} records
             for t in tables:
-                crs.execute("SELECT COUNT(*) from %s" % (t[0],))
+                crs.execute("SELECT COUNT(*) from %s" % (t[0],)) #Count of rows in table
                 count=crs.fetchone()
-                if not t[0] in dict_tables:
-                    dict_tables[t[0]]=count[0]
+                if not t[0] in dict_tables: #Table should not exist yet in the dictionary
+                    dict_tables[t[0]]=count[0] #Add an entry to the dictionary {table_name:row_count}
                 else:
                     print "Big ERROR table %s is already in dictionary" % t[0]
-            dict_bases[d[0]]=dict_tables
+                    exit(-2)
+            dict_bases[d[0]]=dict_tables #Assign the tables dictionary to the databases dictionary
             crs.close()
         else: #Database already in dictionary
             print "Big ERROR database %s is already in dictionary" % d[0]
             exit(-1)
 
+#Here I should have the data from the first database in dict_bases
 
 #Gather information from second database#
-bd2_user='mogutu'
-bd2_password='seseseco'
-bd2_host='motril.epsa.junta-andalucia.es'
+bd2_user= bd_user
+bd2_password= bd_password
+bd2_host='guadalcacin.epsa.junta-andalucia.es'
 
-cnx = MySQLdb.connect(user=bd_user,passwd=bd_password,host=bd_host)
+cnx = MySQLdb.connect(user=bd2_user,passwd=bd2_password,host=bd2_host)
 cursor=cnx.cursor()
 cursor.execute("show databases")
 databases=cursor.fetchall()
@@ -71,18 +76,26 @@ for d in databases:
             print "Big ERROR database %s is already in dictionary" % d[0]
             exit(-1)
 
+#Check if databases, tables and rows are the same in both servers
+print "-Servers:\n\n %s\n %s" % (bd_host,bd2_host)
 list_dbs1=sorted(dict_bases.keys())
 list_dbs2=sorted(dict2_bases.keys())
 if list_dbs1 == list_dbs2:
-    print "Databases are the same in both servers: \n%s.-%s\n%s.-%s" % (bd_host,list_dbs1,bd2_host,list_dbs2)
+    print "\n-Databases:\n\n%39s %39s" % (bd_host,bd2_host)
+    for idx in range(len(list_dbs1)):
+        print "%35s %35s" % (list_dbs1[idx],list_dbs2[idx])
     for common_db in list_dbs1:
         list_tables1=sorted(dict_bases[common_db].keys())
         list_tables2=sorted(dict2_bases[common_db].keys())
         if list_tables1 == list_tables2:
-            print "Tables in %s are the same in both servers: \n%s\t%s" % (common_db,bd_host,bd2_host)
-            for 
-
+            print "\n-Tables in %s:\n\n%39s %39s" % (common_db,bd_host,bd2_host)
+            for common_table in list_tables1:
+                print "%35s:%5d %35s:%5d" % (common_table,dict_bases[common_db][common_table],common_table,dict2_bases[common_db][common_table])
+                if not dict_bases[common_db][common_table] == dict2_bases[common_db][common_table]:
+                    print "COUNT MISSMATCH"
+                    exit(-3)
+        else:
+            print "TABLES MISSMATCH \n %s.-%s\n %s.-%s" % (bd_host,list_tables1,bd2_host,list_tables2)
 else:
-    print "Different databases in each server: \n%s.-%s\n%s.-%s" % (bd_host,list_dbs1,bd2_host,list_dbs2)
+    print "\nDIFFERENT DATABASES IN EACH SERVER: \n %s.-%s\n %s.-%s" % (bd_host,list_dbs1,bd2_host,list_dbs2)
     exit (-2)
-
