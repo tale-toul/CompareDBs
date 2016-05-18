@@ -13,4 +13,4 @@ La lógica general del script en una base de datos es:
 
 * Conectar al servidor de base de datos.
 * Obtener la lista de bases de datos.  
-    `show databases;`
+    `>show databases;`
