@@ -1,4 +1,4 @@
-#SCRIPT DE COMPARACION DE LAS BASES DE DATOS DE "MASTER" Y ESCLAVO
+# SCRIPT DE COMPARACION DE LAS BASES DE DATOS DE "MASTER" Y ESCLAVO
 
 El script necesita conectarse a las dos bases de datos usando un usuario, 
 puesto que este usuario solo tiene que leer datos y no escribir nada, creamos 
