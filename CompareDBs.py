@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-#Version 1.0
+#Version 1.1
 
 import MySQLdb
+from multiprocessing import Process,Queue
 
 #Parameters: bd_user.- database user to connect with
 #            bd_password.- bd_user password in the database
 #            bd_host.- host name or IP of the database server
 #Returns:    a dictionary with the collect data from the database server
-def collect_data_from_base(bd_user,bd_password,bd_host):
+def collect_data_from_base(bd_user,bd_password,bd_host,result_queue):
     '''Collect the databases, its tables and the row counts and save in a dictionary that
     will be returned for comparison'''
     cnx = MySQLdb.connect(user=bd_user,passwd=bd_password,host=bd_host)
@@ -41,38 +42,62 @@ def collect_data_from_base(bd_user,bd_password,bd_host):
                 print "Big ERROR database %s is already in dictionary" % d[0]
                 exit(-1)
     #Here I should have the data from the first database in dict_bases
-    return dict_bases
+    result_queue.put(dict_bases)
+
+
+#Parameters: bd_host1; bdw_host.- database servers to compare
+#            dict1_bases; dict2_bases.- dictionary with the results from the queries to
+#                                       the databases
+#Returns: Nothing
+def show_diffs(bd_host1,bd2_host,dict1_bases,dict2_bases):
+    print "\n-SERVERS:\n\n %s\n %s" % (bd_host1,bd2_host)
+    list_dbs1=sorted(dict1_bases.keys())
+    list_dbs2=sorted(dict2_bases.keys())
+    if list_dbs1 == list_dbs2:
+        print "\n-DATABASES:"
+        for common_db in list_dbs1:
+            list_tables1=dict1_bases[common_db].keys()
+            list_tables2=dict2_bases[common_db].keys()
+            if list_tables1 == list_tables2:
+                print "\n-Tables in database %s:\n\n%39s %39s" % (common_db,bd_host1,bd2_host)
+                for common_table in list_tables1:
+                    print "%35s:%5d %35s:%5d" % (common_table,dict1_bases[common_db][common_table],common_table,dict2_bases[common_db][common_table])
+                    if not dict1_bases[common_db][common_table] == dict2_bases[common_db][common_table]:
+                        print "COUNT MISSMATCH"
+                        raw_input("Press any key to continue")
+            else:
+                print "TABLES MISSMATCH \n %s.-%s\n %s.-%s" % (bd_host1,list_tables1,bd2_host,list_tables2)
+    else:
+        print "\nDIFFERENT DATABASES IN EACH SERVER: \n %s.-%s\n %s.-%s" % (bd_host1,list_dbs1,bd2_host,list_dbs2)
+        exit (-2)
 
 
 ##MAIN##
 
 if __name__ == '__main__':
-    #Gather information from the first database
-    bd_host='lomopardo.epsa.junta-andalucia.es'
-    dict_bases=collect_data_from_base('mdsole','LamidelaSo',bd_host)
-    #Gather information from the second database#
-    bd2_host='guadalcacin.epsa.junta-andalucia.es'
-    dict2_bases=collect_data_from_base('mdsole','LamidelaSo',bd2_host)
-    #Check if databases, tables and rows are the same in both servers
-    print "-Servers:\n\n %s\n %s" % (bd_host,bd2_host)
-    list_dbs1=sorted(dict_bases.keys())
-    list_dbs2=sorted(dict2_bases.keys())
-    if list_dbs1 == list_dbs2:
-        print "\n-Databases:\n\n%39s %39s" % (bd_host,bd2_host)
-        for idx in range(len(list_dbs1)):
-            print "%35s %35s" % (list_dbs1[idx],list_dbs2[idx])
-        for common_db in list_dbs1:
-            list_tables1=sorted(dict_bases[common_db].keys())
-            list_tables2=sorted(dict2_bases[common_db].keys())
-            if list_tables1 == list_tables2:
-                print "\n-Tables in %s:\n\n%39s %39s" % (common_db,bd_host,bd2_host)
-                for common_table in list_tables1:
-                    print "%35s:%5d %35s:%5d" % (common_table,dict_bases[common_db][common_table],common_table,dict2_bases[common_db][common_table])
-                    if not dict_bases[common_db][common_table] == dict2_bases[common_db][common_table]:
-                        print "COUNT MISSMATCH"
-                        exit(-3)
-            else:
-                print "TABLES MISSMATCH \n %s.-%s\n %s.-%s" % (bd_host,list_tables1,bd2_host,list_tables2)
+    job_list=list()
+    result_queue=Queue() #To store the data from the DBs
+    db_connection_data=[('mdsole','LamidelaSo','lomopardo.epsa.junta-andalucia.es'),
+                        ('mdsole','LamidelaSo','guadalcacin.epsa.junta-andalucia.es')]
+    #Gather information from the two databases at once 
+    for bd_user,bd_user_pwd,bd_host in db_connection_data:
+        job=Process(target=collect_data_from_base,args=(bd_user,bd_user_pwd,bd_host,result_queue))
+        job_list.append(job)
+        job.start()
+    #Wait for the processes to finish
+    for p in job_list:
+        p.join()
+    if result_queue.qsize() == 2:
+        r1=result_queue.get()
+        r2=result_queue.get()
+        if r1 == r2: 
+            print "OK - Data matches"
+            show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+        else:
+            print "ERROR - Data missmatch" 
+            show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
     else:
-        print "\nDIFFERENT DATABASES IN EACH SERVER: \n %s.-%s\n %s.-%s" % (bd_host,list_dbs1,bd2_host,list_dbs2)
-        exit (-2)
+        print "ERROR, number of result sets is not 2: %d" % result_queue.qsise()
+        exit(-4)
+      
+
