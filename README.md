@@ -31,6 +31,25 @@ Cuando tenemos la información de las dos bases de datos se compara y muestra en
 Si se detecta alguna diferencia se muestra un mensaje de error y se detiene la
 comparación en ese punto.
 
+### Estructura de la información recogida
+
+La información recogida de la base de datos se almacena en una estructura de datos basada
+en un diccionario.
+
+La estructura de primer nivel de este diccionario es:
+
+ `{ database_name : {table dictionary} }`
+
++ La clave del diccionario (database_name) es el nombre de la base de datos.
++ El valor asociado a la clave es otro dicccionario:
+
+    `{ table_name: row_count}`
+
+  + La clave de este diccionario (table_name) es el nombre de la tabla dentro de la base
+    de datos.
+  + El valor asociado a la clave (row_count) el la cuenta de filas de la tabla.
+
+
 ### Diferencias de la información durante la ejecución
 
 El script usa un usuario de solo lectura para conectarse a las bases de datos, y no
@@ -44,9 +63,9 @@ En la primera versión (**v0.1**) del script la recopilación de la información
 forma secuencial, primero del _master_ y después del esclavo.  Para una cantidad de
 datos pequeña, como tenemos actualmente (menos de **200MB**) el escript se ejecuta en
 menos de 2 segundos, pero a medida que el volumen de información crezca, también lo
-hará el tiempo de ejecución, y como se ha visto en el [apartado anterior](###
-Velocidad de ejecución) aumenta la probabilidad de que se produzcan diferencias entre
-las dos bases de datos.
+hará el tiempo de ejecución, y como se ha visto en el [apartado anterior](### Diferencias
+de la información durante la ejecución) aumenta la probabilidad de que se produzcan
+diferencias entre las dos bases de datos.
 
 Una posible mejora para acelerar la ejecución es consultar los datos de los dos
 servidores en paralelo, usando _multiprocessing_
@@ -77,19 +96,24 @@ recogidos y comprobadas.
 
 ### Comprobación y mostrado de resultados
 
-La comprobación de igualdad es muy simple en python, si r1 y 42 son los diccionarios
-obtenidos, es suficiente con:
+La comprobación de igualdad es muy simple en python, si r1 y r2 son los diccionarios
+obtenidos, es suficiente con la sentencia:
 
 `if r1 == r2:` 
 
-Si el resultado es **False** la busqueda de las diferencias es más complicada y se hace
-desde la función `show_diffs`.  Esta función compara y muestra los nombres de los
-servidores, bases de datos, tablas y cuenta de filas.  Si encuentra alguna diferencia se
-detiene a la espera de que se pulse una tecla.
+Si el resultado es **False** (no son iguales) la busqueda de las diferencias es más
+complicada y se hace desde la función `show_diffs`.  Esta función compara y muestra los
+nombres de los servidores, bases de datos, tablas y cuenta de filas.  Si encuentra alguna
+diferencia se detiene a la espera de que se pulse una tecla.
 
 Queda pendiente modificar este script para que se pueda ejecutar como chequeo de nagios.
 
 
+### Chequeo nagios
 
+**version 1.2**
 
-
+Se adapta el script para que se pueda usar como un chequeo en nagios, ahora la salida del
+script no muestra en pantalla todas las bases de datos, tablas y cuentas de lineas.  Si
+el resultado es que las bases de datos son iguales solo muestra un mensaje diciendolo; si
+por el contrario existe alguna diferencia se muestra la primera diferencia encontrada.

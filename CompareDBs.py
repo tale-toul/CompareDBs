@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#Version 1.1
+#Version 1.2
 
 import MySQLdb
 from multiprocessing import Process,Queue
@@ -8,16 +8,20 @@ from multiprocessing import Process,Queue
 #Parameters: bd_user.- database user to connect with
 #            bd_password.- bd_user password in the database
 #            bd_host.- host name or IP of the database server
-#Returns:    a dictionary with the collect data from the database server
+#Returns:    a dictionary with the collected data from the database server
 def collect_data_from_base(bd_user,bd_password,bd_host,result_queue):
-    '''Collect the databases, its tables and the row counts and save in a dictionary that
+    '''Collect the databases, tables and row counts and all save in a dictionary that
     will be returned for comparison'''
-    cnx = MySQLdb.connect(user=bd_user,passwd=bd_password,host=bd_host)
+    try:
+        cnx = MySQLdb.connect(user=bd_user,passwd=bd_password,host=bd_host)
+    except:
+        print "UNKNOWN - Cannot connect to database %s" % bd_host
+        exit(3)
     cursor=cnx.cursor()
     cursor.execute("show databases")
     databases=cursor.fetchall() #All database names
     cursor.close()
-
+#Fill in the dictionary
     dict_bases=dict() #Main dictionary to hold the collected information
     for d in databases:
         if not d[0].upper().endswith('SCHEMA'): #Ignore the *_schema databases
@@ -34,13 +38,13 @@ def collect_data_from_base(bd_user,bd_password,bd_host,result_queue):
                     if not t[0] in dict_tables: #Table should not exist yet in the dictionary
                         dict_tables[t[0]]=count[0] #Add an entry to the dictionary {table_name:row_count}
                     else:
-                        print "Big ERROR table %s is already in dictionary" % t[0]
-                        exit(-2)
+                        print "CRITICAL - table %s is already in dictionary" % t[0]
+                        exit(2)
                 dict_bases[d[0]]=dict_tables #Assign the tables dictionary to the databases dictionary
                 crs.close()
             else: #Database already in dictionary
-                print "Big ERROR database %s is already in dictionary" % d[0]
-                exit(-1)
+                print "CRITICAL - database %s is already in dictionary" % d[0]
+                exit(2)
     #Here I should have the data from the first database in dict_bases
     result_queue.put(dict_bases)
 
@@ -50,9 +54,11 @@ def collect_data_from_base(bd_user,bd_password,bd_host,result_queue):
 #                                       the databases
 #Returns: Nothing
 def show_diffs(bd_host1,bd2_host,dict1_bases,dict2_bases):
+    '''Follow the whole two dictionaries and compare every element, showing them on the
+    screen.  If any difference is found, stop the and wait for keypress '''
     print "\n-SERVERS:\n\n %s\n %s" % (bd_host1,bd2_host)
-    list_dbs1=sorted(dict1_bases.keys())
-    list_dbs2=sorted(dict2_bases.keys())
+    list_dbs1=dict1_bases.keys()
+    list_dbs2=dict2_bases.keys()
     if list_dbs1 == list_dbs2:
         print "\n-DATABASES:"
         for common_db in list_dbs1:
@@ -72,6 +78,32 @@ def show_diffs(bd_host1,bd2_host,dict1_bases,dict2_bases):
         exit (-2)
 
 
+#Parameters: bd_host1; bdw_host.- database servers to compare
+#            dict1_bases; dict2_bases.- dictionary with the results from the queries to
+#                                       the databases
+#Returns: String with the first different found
+def return_first_diff(bd_host1,bd2_host,dict1_bases,dict2_bases):
+    '''Follow the whole two dictionaries, and compare every element, if any difference if
+    found return with an error, and just show the difference.  It stops at the first
+    difference found, if any'''
+    return_string=''
+    list_dbs1=dict1_bases.keys()
+    list_dbs2=dict2_bases.keys()
+    if not list_dbs1 == list_dbs2: #Database lists are different
+        return_string="Different databases between servers: %s - %s" % (list_dbs1,list_dbs2)
+    else: #Databases are the same in both servers
+        for common_db in list_dbs1:
+            list_tables1=dict1_bases[common_db].keys()
+            list_tables2=dict2_bases[common_db].keys()
+            if not list_tables1 == list_tables2: #Lists of tables are different
+                return_string="Different tables: Database=%s Uncommon table=%s" % (common_db,list(set(list_tables1) ^ set(list_tables2)))
+            else: #Both lists of tables are the same
+                for common_table in list_tables1:
+                    if not dict1_bases[common_db][common_table] == dict2_bases[common_db][common_table]: #Row counts are different
+                        return_string="Database=%s Table=%s Row count3=%d Row count2=%d" % (common_db,common_table,dict1_bases[common_db][common_table],dict2_bases[common_db][common_table])
+    return return_string
+
+
 ##MAIN##
 
 if __name__ == '__main__':
@@ -79,7 +111,7 @@ if __name__ == '__main__':
     result_queue=Queue() #To store the data from the DBs
     db_connection_data=[('mdsole','LamidelaSo','lomopardo.epsa.junta-andalucia.es'),
                         ('mdsole','LamidelaSo','guadalcacin.epsa.junta-andalucia.es')]
-    #Gather information from the two databases at once 
+    #Gather information from the two databases in parallel
     for bd_user,bd_user_pwd,bd_host in db_connection_data:
         job=Process(target=collect_data_from_base,args=(bd_user,bd_user_pwd,bd_host,result_queue))
         job_list.append(job)
@@ -87,17 +119,22 @@ if __name__ == '__main__':
     #Wait for the processes to finish
     for p in job_list:
         p.join()
+        if p.exitcode: #Process exit with exit code not zero
+            exit(p.exitcode)
     if result_queue.qsize() == 2:
         r1=result_queue.get()
         r2=result_queue.get()
         if r1 == r2: 
             print "OK - Data matches"
-            show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+            #Uncomment the following line to show the date in the screen
+            #show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+            exit(0)
         else:
-            print "ERROR - Data missmatch" 
-            show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+            perf_data=return_first_diff(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+            print "CRITICAL - Data missmatch | %s" % perf_data
+            #Uncomment the following line to show the date in the screen
+            #show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+            exit(2)
     else:
-        print "ERROR, number of result sets is not 2: %d" % result_queue.qsise()
-        exit(-4)
-      
-
+        print "UNKNOWN: Number of result sets is %d, should be 2" % result_queue.qsize()
+        exit(3)
