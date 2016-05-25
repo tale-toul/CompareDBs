@@ -1,16 +1,31 @@
 #!/usr/bin/env python
 
-#Version 1.2
+#Version 1.3
 
 import MySQLdb
 from multiprocessing import Process,Queue
+import argparse
+
+def parse_arguments():
+    '''Parses the command line arguments'''
+    parser=argparse.ArgumentParser(description="Compares two databases and checks for content differences")
+    parser.add_argument("-v", "--verbose", help="Verbose output", action="store_true")
+    parser.add_argument("bd_user1", help="User to connect to the first database")
+    parser.add_argument("bd_pass1", help="Password of the first user")
+    parser.add_argument("bd_host1", help="hostname or IP where the first database is hosted")
+    parser.add_argument("bd_user2", help="User to connect to the second database")
+    parser.add_argument("bd_pass2", help="Password of the second user")
+    parser.add_argument("bd_host2", help="hostname or IP where the second database is hosted")
+    return(parser.parse_args()) 
+
+
 
 #Parameters: bd_user.- database user to connect with
 #            bd_password.- bd_user password in the database
 #            bd_host.- host name or IP of the database server
 #Returns:    a dictionary with the collected data from the database server
 def collect_data_from_base(bd_user,bd_password,bd_host,result_queue):
-    '''Collect the databases, tables and row counts and all save in a dictionary that
+    '''Collects the databases, tables and row counts, and save all in a dictionary that
     will be returned for comparison'''
     try:
         cnx = MySQLdb.connect(user=bd_user,passwd=bd_password,host=bd_host)
@@ -83,7 +98,7 @@ def show_diffs(bd_host1,bd2_host,dict1_bases,dict2_bases):
 #                                       the databases
 #Returns: String with the first different found
 def return_first_diff(bd_host1,bd2_host,dict1_bases,dict2_bases):
-    '''Follow the whole two dictionaries, and compare every element, if any difference if
+    '''Follow the whole two dictionaries, and compare every element, if any difference is
     found return with an error, and just show the difference.  It stops at the first
     difference found, if any'''
     return_string=''
@@ -107,10 +122,11 @@ def return_first_diff(bd_host1,bd2_host,dict1_bases,dict2_bases):
 ##MAIN##
 
 if __name__ == '__main__':
+    arguments=parse_arguments()
     job_list=list()
     result_queue=Queue() #To store the data from the DBs
-    db_connection_data=[('mdsole','LamidelaSo','lomopardo.epsa.junta-andalucia.es'),
-                        ('mdsole','LamidelaSo','guadalcacin.epsa.junta-andalucia.es')]
+    db_connection_data=[(arguments.bd_user1,arguments.bd_pass1,arguments.bd_host1),
+                        (arguments.bd_user2,arguments.bd_pass2,arguments.bd_host2)]
     #Gather information from the two databases in parallel
     for bd_user,bd_user_pwd,bd_host in db_connection_data:
         job=Process(target=collect_data_from_base,args=(bd_user,bd_user_pwd,bd_host,result_queue))
@@ -126,14 +142,14 @@ if __name__ == '__main__':
         r2=result_queue.get()
         if r1 == r2: 
             print "OK - Data matches"
-            #Uncomment the following line to show the date in the screen
-            #show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+            if arguments.verbose: 
+                show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
             exit(0)
         else:
             perf_data=return_first_diff(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
             print "CRITICAL - Data missmatch | %s" % perf_data
-            #Uncomment the following line to show the date in the screen
-            #show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
+            if arguments.verbose:
+                show_diffs(db_connection_data[0][2],db_connection_data[1][2],r1,r2)
             exit(2)
     else:
         print "UNKNOWN: Number of result sets is %d, should be 2" % result_queue.qsize()

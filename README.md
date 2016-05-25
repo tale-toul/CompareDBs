@@ -117,3 +117,27 @@ Se adapta el script para que se pueda usar como un chequeo en nagios, ahora la s
 script no muestra en pantalla todas las bases de datos, tablas y cuentas de lineas.  Si
 el resultado es que las bases de datos son iguales solo muestra un mensaje diciendolo; si
 por el contrario existe alguna diferencia se muestra la primera diferencia encontrada.
+
+### Parametros en la linea de comandos
+
+**version 1.3**
+
+En esta versión se incluye la posibilidad de utilizar parametros y opciones en la
+línea de comandos para modificar la ejecución de la aplicación:  
+
++ La opción **-v** muestra en pantalla todas las bases de datos, tablas y cuenta de
+  lineas.  Si esta opció no se utiliza la salida por pantalla se reduce mensaje con el
+  resultado final (OK ó CRITICAL) y en caso de haber diferencias, muetra la primera de
+  estas
+
++ Parametros para definir la conexión con las dos bases de datos a comparar.  Estos
+  parametros son obligatorios.
+
+Un ejemplo de ejecución de la orden sería:
+
+```./CompareDBs.py -v mdsole LamidelaSo lomopardo.epsa.junta-andalucia.es mdsole LamidelaSo guadalcacin.epsa.junta-andalucia.es```
+
+La gestión de los parametros y opciones se hace a través del módulo python
+[argparse](https://docs.python.org/3/library/argparse.html)
+
+El soporte de esta funcionalidad lo haremos a través del modulo python argparse
