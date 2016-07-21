@@ -70,20 +70,20 @@ def show_diffs(bd_host1,bd2_host,dict1_bases,dict2_bases):
     '''Follow the whole two dictionaries and compare every element, showing them on the
     screen.  If any difference is found, stop the and wait for keypress '''
     print "\n-SERVERS:\n\n %s\n %s" % (bd_host1,bd2_host)
-    list_dbs1=dict1_bases.keys()
-    list_dbs2=dict2_bases.keys()
+    list_dbs1=sorted(dict1_bases.keys())
+    list_dbs2=sorted(dict2_bases.keys())
     if list_dbs1 == list_dbs2:
         print "\n-DATABASES:"
         for common_db in list_dbs1:
-            list_tables1=dict1_bases[common_db].keys()
-            list_tables2=dict2_bases[common_db].keys()
+            list_tables1=sorted(dict1_bases[common_db].keys())
+            list_tables2=sorted(dict2_bases[common_db].keys())
             if list_tables1 == list_tables2:
                 print "\n-Tables in database %s:\n\n%39s %39s" % (common_db,bd_host1,bd2_host)
                 for common_table in list_tables1:
                     print "%35s:%5d %35s:%5d" % (common_table,dict1_bases[common_db][common_table],common_table,dict2_bases[common_db][common_table])
                     if not dict1_bases[common_db][common_table] == dict2_bases[common_db][common_table]:
                         print "COUNT MISSMATCH"
-                        raw_input("Press any key to continue")
+                        raw_input("Press ENTER to continue")
             else:
                 print "TABLES MISSMATCH \n %s.-%s\n %s.-%s" % (bd_host1,list_tables1,bd2_host,list_tables2)
     else:
@@ -99,22 +99,21 @@ def return_first_diff(bd_host1,bd2_host,dict1_bases,dict2_bases):
     '''Follow the whole two dictionaries, and compare every element, if any difference is
     found return with an error, and just show the difference.  It stops at the first
     difference found, if any'''
-    return_string=''
-    list_dbs1=dict1_bases.keys()
-    list_dbs2=dict2_bases.keys()
+    list_dbs1=sorted(dict1_bases.keys())
+    list_dbs2=sorted(dict2_bases.keys())
     if not list_dbs1 == list_dbs2: #Database lists are different
-        return_string="Different databases between servers: %s - %s" % (list_dbs1,list_dbs2)
+        return "Different databases between servers: %s - %s" % (list_dbs1,list_dbs2)
     else: #Databases are the same in both servers
         for common_db in list_dbs1:
-            list_tables1=dict1_bases[common_db].keys()
-            list_tables2=dict2_bases[common_db].keys()
+            list_tables1=sorted(dict1_bases[common_db].keys())
+            list_tables2=sorted(dict2_bases[common_db].keys())
             if not list_tables1 == list_tables2: #Lists of tables are different
-                return_string="Different tables: Database=%s Uncommon table=%s" % (common_db,list(set(list_tables1) ^ set(list_tables2)))
+                return "Different tables: Database=%s Uncommon table=%s" % (common_db,list(set(list_tables1) ^ set(list_tables2)))
             else: #Both lists of tables are the same
                 for common_table in list_tables1:
                     if not dict1_bases[common_db][common_table] == dict2_bases[common_db][common_table]: #Row counts are different
-                        return_string="Database=%s Table=%s Row count3=%d Row count2=%d" % (common_db,common_table,dict1_bases[common_db][common_table],dict2_bases[common_db][common_table])
-    return return_string
+                        return "Database=%s Table=%s Row count1=%d Row count2=%d" % (common_db,common_table,dict1_bases[common_db][common_table],dict2_bases[common_db][common_table])
+    return ''
 
 
 ##MAIN##
@@ -133,7 +132,7 @@ if __name__ == '__main__':
     #Wait for the processes to finish
     for p in job_list:
         p.join()
-        if p.exitcode: #Process exit with exit code not zero
+        if p.exitcode: #Process exit with exit code non zero
             exit(p.exitcode)
     if result_queue.qsize() == 2:
         r1=result_queue.get()
