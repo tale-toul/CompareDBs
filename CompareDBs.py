@@ -10,11 +10,9 @@ def parse_arguments():
     '''Parses the command line arguments'''
     parser=argparse.ArgumentParser(description="Compares two databases and checks for content differences")
     parser.add_argument("-v", "--verbose", help="Verbose output", action="store_true")
-    parser.add_argument("bd_user1", help="User to connect to the first database")
-    parser.add_argument("bd_pass1", help="Password of the first user")
+    parser.add_argument("bd_user", help="User to connect to the database")
+    parser.add_argument("bd_pass", help="Password of the database user")
     parser.add_argument("bd_host1", help="hostname or IP where the first database is hosted")
-    parser.add_argument("bd_user2", help="User to connect to the second database")
-    parser.add_argument("bd_pass2", help="Password of the second user")
     parser.add_argument("bd_host2", help="hostname or IP where the second database is hosted")
     return(parser.parse_args()) 
 
@@ -125,8 +123,8 @@ if __name__ == '__main__':
     arguments=parse_arguments()
     job_list=list()
     result_queue=Queue() #To store the data from the DBs
-    db_connection_data=[(arguments.bd_user1,arguments.bd_pass1,arguments.bd_host1),
-                        (arguments.bd_user2,arguments.bd_pass2,arguments.bd_host2)]
+    db_connection_data=[(arguments.bd_user,arguments.bd_pass,arguments.bd_host1),
+                        (arguments.bd_user,arguments.bd_pass,arguments.bd_host2)]
     #Gather information from the two databases in parallel
     for bd_user,bd_user_pwd,bd_host in db_connection_data:
         job=Process(target=collect_data_from_base,args=(bd_user,bd_user_pwd,bd_host,result_queue))
