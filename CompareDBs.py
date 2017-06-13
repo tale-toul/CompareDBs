@@ -46,13 +46,16 @@ def collect_data_from_base(bd_user,bd_password,bd_host,result_queue):
                                       # reuse the cursor
                 dict_tables=dict() #Dictionary holding {table_name:row_count} records
                 for t in tables:
-                    crs.execute("SELECT COUNT(*) from %s" % (t[0],)) #Count of rows in table
-                    count=crs.fetchone()
-                    if not t[0] in dict_tables: #Table should not exist yet in the dictionary
-                        dict_tables[t[0]]=count[0] #Add an entry to the dictionary {table_name:row_count}
-                    else:
-                        print "CRITICAL - table %s is already in dictionary" % t[0]
-                        exit(2)
+                    crs.execute("SHOW TABLE STATUS WHERE NAME='%s'" % (t[0],))
+                    t_status=crs.fetchall()
+                    if t_status[0][1] != "MEMORY":
+                        crs.execute("SELECT COUNT(*) from %s" % (t[0],)) #Count of rows in table
+                        count=crs.fetchone()
+                        if not t[0] in dict_tables: #Table should not exist yet in the dictionary
+                            dict_tables[t[0]]=count[0] #Add an entry to the dictionary {table_name:row_count}
+                        else:
+                            print "CRITICAL - table %s is already in dictionary" % t[0]
+                            exit(2)
                 dict_bases[d[0]]=dict_tables #Assign the tables dictionary to the databases dictionary
                 crs.close()
             else: #Database already in dictionary
