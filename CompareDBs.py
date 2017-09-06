@@ -134,7 +134,7 @@ if __name__ == '__main__':
         job.start()
     #Wait for the processes to finish
     for p in job_list:
-        p.join()
+        p.join(21)
         if p.exitcode: #Process exit with exit code non zero
             exit(p.exitcode)
     if result_queue.qsize() == 2:
